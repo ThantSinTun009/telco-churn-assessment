@@ -1,4 +1,4 @@
-from flask import Flask, request, render_template_string
+from flask import Flask, request, render_template_string, jsonify
 import pandas as pd
 import joblib
 
@@ -231,6 +231,51 @@ def predict_form():
         return render_template_string(HTML_TEMPLATE, prediction=message, churn=(y_pred[0]==1))
     except Exception as e:
         return render_template_string(HTML_TEMPLATE, prediction=f"Error: {e}", churn=False)
+
+
+@app.route('/predict_api', methods=['POST'])
+def predict_api():
+    if final_pipeline is None:
+        return jsonify({"error": "Pipeline not loaded"}), 500
+
+    try:
+        data = request.get_json()
+
+        numeric_fields = [
+            'SeniorCitizen','tenure','MonthlyCharges','TotalCharges',
+            'charge_per_tenure','avg_monthly_spend','num_services'
+        ]
+
+        binary_fields = [
+            'gender','Partner','Dependents','PhoneService','MultipleLines',
+            'OnlineSecurity','OnlineBackup','DeviceProtection','TechSupport',
+            'StreamingTV','StreamingMovies','PaperlessBilling'
+        ]
+
+        for field in numeric_fields + binary_fields:
+            data[field] = float(data[field])
+
+        contract_map = {"Month-to-month":0,"One year":1,"Two year":2}
+        tenure_group_map = {"0-1yr":0,"1-2yr":1,"2-4yr":2,"4-6yr":3}
+
+        data['Contract'] = contract_map.get(data['Contract'],0)
+        data['tenure_group'] = tenure_group_map.get(data['tenure_group'],0)
+
+        user_df = pd.DataFrame([data])
+
+        y_prob = final_pipeline.predict_proba(user_df)[:,1]
+        y_pred = (y_prob > 0.35).astype(int)
+
+        result = {
+            "churn_probability": float(y_prob[0]),
+            "prediction": int(y_pred[0]),
+            "message": "User likely to churn" if y_pred[0]==1 else "User likely safe"
+        }
+
+        return jsonify(result)
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
 
 if __name__ == '__main__':
     app.run(debug=True)
