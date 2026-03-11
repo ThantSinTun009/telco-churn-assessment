@@ -42,6 +42,8 @@ telco_churn_submission/
 
 ├── requirements.txt # Python dependencies
 
+├── request.py # API request
+
 ├── README.md 
 
 └── final_tuned_lgbm_pipeline.pkl
@@ -121,3 +123,5 @@ Send the Request
 ```
 Click Send in Postman.
 ```
+
+---
